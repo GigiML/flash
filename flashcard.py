@@ -3,41 +3,52 @@ import pandas as pd
 import random
 import os
 
-
-
+# Function to list CSV files
 def list_csv_files(directory):
     csv_files = [f for f in os.listdir(directory) if f.endswith('.csv')]
     return csv_files
-directory = '.'  
-csv_files = list_csv_files(directory)
 
-selected_file = st.selectbox('Choose a CSV file', csv_files)
-# Fonction pour charger les données
+# Function to load data
 @st.cache_data
-def load_data():
+def load_data(file):
     try:
-        df = pd.read_csv(selected_file)
+        df = pd.read_csv(file)
     except FileNotFoundError:
         df = pd.DataFrame(columns=["Word/Phrase", "Definition", "Example Sentence"])
     return df
 
-# Fonction pour sauvegarder les données
-def save_data(df):
-    df.to_csv(selected_file, index=False)
-    load_data.clear()
+# Function to save data
+def save_data(df, file):
+    df.to_csv(file, index=False)
+    st.cache_data.clear()
 
-# Initialisation de l'application
+# Initialize the application
 st.title("Flashcard App")
 
-# Chargement des données
-df = load_data()
+# List CSV files
+directory = '.'
+csv_files = list_csv_files(directory)
 
-# Création des onglets
+# Create a selectbox for file selection
+if 'selected_file' not in st.session_state:
+    st.session_state.selected_file = csv_files[0] if csv_files else None
+
+selected_file = st.selectbox('Choose a CSV file', csv_files, key='file_selector')
+
+# Update the selected file in session state
+if selected_file != st.session_state.selected_file:
+    st.session_state.selected_file = selected_file
+
+
+# Load data based on the selected file
+df = load_data(st.session_state.selected_file)
+
+# Create tabs
 tab1, tab2, tab3 = st.tabs(["Quiz", "Add Flashcard", "Show All"])
 
 with tab1:
     if not df.empty:
-        # Utiliser session_state pour stocker l'état actuel
+        # Use session_state to store the current state
         if 'current_card' not in st.session_state:
             st.session_state.current_card = None
         if 'show_answer' not in st.session_state:
@@ -83,14 +94,11 @@ with tab2:
         if new_question and new_answer:
             new_row = pd.DataFrame({"Word/Phrase": [new_question], "Definition": [new_answer], "Example Sentence": [new_sentence]})
             df = pd.concat([df, new_row], ignore_index=True)
-            save_data(df)
+            save_data(df, st.session_state.selected_file)
             st.success("Flashcard added successfully!")
-            df = load_data()
         else:
             st.error("Please enter both question and answer.")
 
 with tab3:
     st.header("Show All Flashcards")
     st.dataframe(df)
-
-
